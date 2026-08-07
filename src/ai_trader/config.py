@@ -12,7 +12,12 @@ def _load_dotenv(path):
     o arquivo."""
     if not path.exists():
         return
-    for line in path.read_text(encoding="utf-8").splitlines():
+    # utf-8-sig (nao utf-8 puro) porque o PowerShell (Out-File -Encoding
+    # utf8) grava um BOM no inicio do arquivo por padrao - sem isso, o BOM
+    # gruda na primeira chave da primeira linha (vira "﻿IQ_EMAIL" em vez
+    # de "IQ_EMAIL") e a variavel some silenciosamente. utf-8-sig ignora o
+    # BOM quando ele existe e nao muda nada quando nao existe.
+    for line in path.read_text(encoding="utf-8-sig").splitlines():
         line = line.strip()
         if not line or line.startswith("#") or "=" not in line:
             continue
