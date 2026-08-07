@@ -7,3 +7,16 @@ dist/
 venv/
 .idea
 test.py
+
+# ai_trader: credenciais, bases de dados locais e estado de runtime -
+# tudo isso e especifico de cada maquina/execucao, reconstruido sozinho
+# (sync.py refaz candles.db, os processos recriam status_*.json) ou grande
+# demais/sensivel demais pra versionar (strategies.db passa de 2GB depois
+# de rodar um tempo; backups/ sao copias inteiras dele).
+src/ai_trader/.env
+src/ai_trader/*.db
+src/ai_trader/backups/
+src/ai_trader/*.log
+src/ai_trader/status_*.json
+src/ai_trader/*.tmp
+__pycache__/

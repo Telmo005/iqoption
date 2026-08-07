@@ -1,0 +1,15 @@
+import os
+import sys
+import time
+from iqoptionapi.stable_api import IQ_Option
+
+EMAIL = os.getenv("IQ_EMAIL")
+PASSWORD = os.getenv("IQ_PASSWORD")
+if not EMAIL or not PASSWORD:
+    sys.exit("Defina as variaveis de ambiente IQ_EMAIL e IQ_PASSWORD antes de rodar.")
+
+Iq = IQ_Option(EMAIL, PASSWORD)
+Iq.connect()#connect to iqoption
+goal="EURUSD-OTC"
+print("get candles")
+print(Iq.get_candles(goal,60,111,time.time()))

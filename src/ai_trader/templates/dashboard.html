@@ -1,0 +1,1106 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Trader</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --surface-0:      #0d0d0d;
+    --surface-1:      #1a1a19;
+    --surface-2:      #201f1d;
+    --text-primary:   #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted:     #898781;
+    --grid:           #2c2c2a;
+    --baseline:       #383835;
+    --border:         rgba(255,255,255,0.10);
+
+    --series-blue:    #3987e5;
+    --series-orange:  #d95926;
+    --series-aqua:    #199e70;
+    --series-yellow:  #c98500;
+    --series-violet:  #9085e9;
+    --series-red:     #e66767;
+
+    --status-good:     #0ca30c;
+    --status-warning:  #fab219;
+    --status-serious:  #ec835a;
+    --status-critical: #d03b3b;
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; background: var(--surface-0); color: var(--text-primary);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  body { max-width: 1180px; margin: 0 auto; padding: 20px 16px 60px; }
+
+  a { color: var(--series-blue); }
+
+  h1 { font-size: 20px; margin: 0; font-weight: 700; letter-spacing: 0.02em; }
+  .subtle { color: var(--text-muted); font-size: 12px; }
+
+  header.top {
+    display: flex; align-items: baseline; justify-content: space-between;
+    flex-wrap: wrap; gap: 8px; margin-bottom: 16px;
+  }
+
+  .panel {
+    background: var(--surface-1); border: 1px solid var(--border);
+    border-radius: 10px; padding: 16px; margin-bottom: 14px;
+  }
+  .panel h2 {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--text-muted); margin: 0 0 10px;
+  }
+
+  .cards-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin-bottom: 14px; }
+  .card {
+    background: var(--surface-1); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px;
+  }
+  .card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  .card-title { font-weight: 700; font-size: 12px; letter-spacing: 0.03em; }
+  .card-pid { color: var(--text-muted); font-size: 11px; }
+  .card-desc { color: var(--text-muted); font-size: 11.5px; line-height: 1.45; margin: 4px 0 10px; }
+  .card-phase-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--text-muted); flex-shrink: 0; }
+  .dot.busy { animation: pulse 1.1s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+  .card-phase-text { font-size: 13px; font-weight: 600; }
+  .card-heartbeat { font-size: 10.5px; color: var(--text-muted); margin-bottom: 6px; }
+  .card-heartbeat.stale { color: var(--status-critical); font-weight: 700; }
+  .card-detail { font-size: 11.5px; color: var(--text-secondary); white-space: pre-line; min-height: 2.6em; }
+
+  .btn-row { display: flex; gap: 8px; margin-top: 10px; }
+  button {
+    font-family: inherit; font-size: 12px; font-weight: 700; border: none;
+    border-radius: 6px; padding: 7px 14px; cursor: pointer; letter-spacing: 0.02em;
+  }
+  button:disabled { opacity: 0.35; cursor: default; }
+  .btn-start { background: var(--status-good); color: #06210a; }
+  .btn-stop  { background: var(--status-critical); color: #250606; }
+
+  .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 16px; }
+  .stat-label { font-size: 10.5px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+  .stat-value { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 2px; }
+  .stat-value.small { font-size: 15px; }
+  .pos { color: var(--status-good); }
+  .neg { color: var(--status-critical); }
+
+  .badge {
+    display: inline-block; font-size: 10.5px; font-weight: 700; padding: 2px 8px;
+    border-radius: 999px; letter-spacing: 0.03em;
+  }
+  .badge.confirmed { background: rgba(12,163,12,0.18); color: #6bdc6b; }
+  .badge.unconfirmed { background: rgba(250,178,25,0.18); color: var(--status-warning); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+  th { color: var(--text-muted); font-weight: 600; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.03em; }
+  td.num { font-variant-numeric: tabular-nums; text-align: right; }
+  .table-wrap { overflow-x: auto; max-height: 340px; overflow-y: auto; }
+  .table-wrap table thead th { position: sticky; top: 0; background: var(--surface-1); z-index: 1; }
+
+  .log { font-family: Consolas, monospace; font-size: 11.5px; line-height: 1.6; max-height: 220px; overflow-y: auto; }
+  .log .win { color: #6bdc6b; }
+  .log .loss { color: var(--series-red); }
+  .log .muted { color: var(--text-muted); }
+  .log .comp { color: var(--series-blue); font-weight: 600; }
+  .log.errors div { color: var(--status-critical); }
+
+  .chart-wrap { width: 100%; overflow-x: auto; }
+  svg.chart text { fill: var(--text-muted); font-size: 10px; font-family: inherit; }
+  svg.chart .grid-line { stroke: var(--grid); stroke-width: 1; }
+  svg.chart .baseline { stroke: var(--baseline); stroke-width: 1; }
+  svg.chart .bar { fill: var(--series-blue); }
+  svg.chart .line-path { fill: none; stroke: var(--series-blue); stroke-width: 2; }
+  svg.chart .area-path { fill: var(--series-blue); opacity: 0.12; }
+  svg.chart .hover-line { stroke: var(--text-muted); stroke-width: 1; stroke-dasharray: 3 3; }
+  .tooltip {
+    position: absolute; background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 6px; padding: 6px 10px; font-size: 11px; pointer-events: none;
+    display: none; white-space: nowrap; z-index: 10;
+  }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 780px) { .two-col { grid-template-columns: 1fr; } }
+
+  .empty { color: var(--text-muted); font-size: 12px; padding: 8px 0; }
+
+  .settings-form { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-end; }
+  .settings-field { display: flex; flex-direction: column; gap: 4px; }
+  .settings-field label { font-size: 10.5px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  .settings-field input, .settings-field select {
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px;
+    color: var(--text-primary); font-size: 13px; padding: 7px 10px; width: 130px;
+    font-variant-numeric: tabular-nums; font-family: inherit;
+  }
+  .settings-field input:focus, .settings-field select:focus { outline: 1px solid var(--series-blue); }
+  .btn-save { background: var(--series-blue); color: #06132a; }
+  .settings-note { font-size: 11px; color: var(--text-muted); margin-top: 10px; }
+  .settings-saved { color: var(--status-good); font-size: 11.5px; margin-left: 4px; display: none; }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div>
+    <h1>AI TRADER</h1>
+    <div class="subtle" id="pair-info">carregando...</div>
+  </div>
+  <div class="subtle" id="lan-hint">acesse desta rede em: http://{{ lan_ip }}:5000</div>
+</header>
+
+<div class="cards-row" id="cards"></div>
+
+<div class="two-col">
+  <div class="panel">
+    <h2>Campeao atual (usado pelo executor)</h2>
+    <div id="champion-block"><div class="empty">carregando...</div></div>
+  </div>
+  <div class="panel">
+    <h2>Executor - hoje</h2>
+    <div class="stat-grid" id="exec-stats"></div>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>Configuracoes</h2>
+  <div class="settings-form" id="settings-form"><div class="empty">carregando...</div></div>
+  <div class="settings-note">
+    Muda o valor gravado no .env. So faz efeito depois de reiniciar os tres
+    componentes (Parar + Iniciar) - eles so leem esses valores quando iniciam.
+    <b>Valor por operacao e Saldo inicial de simulacao</b> tambem afetam os
+    calculos de saldo final desta tela - so atualizam depois de fechar e
+    reabrir o AI Trader (o painel web tambem precisa reiniciar pra ler o
+    .env de novo).
+    <b>Trocar o par de moeda zera o progresso</b>: cache de candles, campeao e
+    historico de busca sao todos por par - o novo par comeca do zero (o
+    Sincronizador refaz o backfill, o Gerador busca uma estrategia nova).
+    <span class="settings-saved" id="settings-saved">✓ salvo</span>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>Estrategias testadas por hora (ultimas 24h)</h2>
+  <div class="chart-wrap"><svg class="chart" id="chart-trials" width="1100" height="180"></svg></div>
+</div>
+
+<div class="panel">
+  <h2>Saldo acumulado (ultimas 100 operacoes reais)</h2>
+  <div class="chart-wrap"><svg class="chart" id="chart-pnl" width="1100" height="180"></svg></div>
+</div>
+
+<div class="two-col">
+  <div class="panel">
+    <h2>Melhores estrategias confirmadas (holdout)</h2>
+    <div class="table-wrap" id="leaderboard-table"><div class="empty">carregando...</div></div>
+  </div>
+  <div class="panel">
+    <h2>Historico de campeoes promovidos</h2>
+    <div class="table-wrap" id="champion-history-table"><div class="empty">carregando...</div></div>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>Hall da fama (alimenta o Aprendiz)</h2>
+  <div class="subtle" style="margin-bottom: 8px;">
+    Estrategias de programacao genetica ja CONFIRMADAS no holdout em qualquer
+    sessao anterior. Nao interfere na busca do Gerador (que continua igual,
+    sempre explorando do zero) - serve so de material de entrada pro
+    Aprendiz, o componente separado logo abaixo.
+  </div>
+  <div class="table-wrap" id="hall-of-fame-table"><div class="empty">carregando...</div></div>
+</div>
+
+<div class="panel">
+  <h2>Escolha do Aprendiz</h2>
+  <div class="subtle" style="margin-bottom: 8px;">
+    Uma UNICA estrategia, refinada a partir do hall da fama acima. Nunca
+    substitui o campeao real sozinho - e so uma sugestao ate voce mandar
+    usar de verdade.
+  </div>
+  <div id="learner-block"><div class="empty">carregando...</div></div>
+</div>
+
+<div class="panel">
+  <h2>Historico de operacoes reais</h2>
+  <div class="table-wrap" id="trades-table"><div class="empty">carregando...</div></div>
+</div>
+
+<div class="panel">
+  <h2>Eventos (todos os componentes)</h2>
+  <div class="log" id="events-log"><div class="empty">carregando...</div></div>
+</div>
+
+<div class="panel">
+  <h2 style="display:flex; justify-content:space-between; align-items:center;">
+    <span>Erros e anomalias (pra investigar depois)</span>
+    <button class="btn-stop" style="padding:4px 10px;font-size:11px" onclick="clearErrors()">🗑 Limpar erros</button>
+  </h2>
+  <div class="log errors" id="errors-log"><div class="empty">nenhum erro registrado ainda</div></div>
+</div>
+
+<div class="panel" style="border-color: rgba(208,59,59,0.35);">
+  <h2 style="color: var(--status-critical);">Zona de Perigo</h2>
+  <div class="settings-note" style="margin-top: 0; margin-bottom: 10px;">
+    Dois resets separados, de proposito - estrategias sao dificeis de achar,
+    entao resetar o saldo nao deveria jogar fora uma ja encontrada.
+    <b>Nenhum dos dois mexe no cache de candles.</b> Ambos param os
+    componentes que dependem do que vai ser zerado e fazem backup automatico
+    antes - pode restaurar qualquer backup anterior na lista abaixo.
+  </div>
+  <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+    <button class="btn-stop" id="reset-balance-btn" onclick="resetScope('balance')">💰 Resetar Saldo</button>
+    <button class="btn-stop" id="reset-strategies-btn" onclick="resetScope('strategies')">🧬 Resetar Estrategias</button>
+  </div>
+  <div class="subtle" style="margin-top:6px;">
+    Saldo: reseta o saldo PRACTICE na IQ Option + zera operacoes (para o Executor). Nao mexe em estrategias/campeao.<br>
+    Estrategias: zera tentativas/campeao/historico (para Gerador + Executor). Nao mexe em saldo/operacoes.
+  </div>
+  <span id="reset-status" style="margin-left: 2px; font-size: 12px; display:block; margin-top:6px;"></span>
+
+  <div style="margin-top: 16px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px;">
+      <div class="stat-label">BACKUPS DISPONIVEIS</div>
+      <button class="btn-stop" style="padding:4px 10px;font-size:11px" onclick="clearOldBackups()">🗑 Limpar backups antigos</button>
+    </div>
+    <div class="table-wrap" id="backups-table"><div class="empty">carregando...</div></div>
+  </div>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+const COMPONENTS = {
+  sync: {
+    label: "Sincronizador",
+    desc_start: "Conecta na IQ Option e baixa candles novos a cada hora, guardando num cache local. Depois disso, gerador e executor nunca mais precisam buscar dados sozinhos.",
+    desc_stop: "Para de atualizar o cache local. O que ja foi baixado continua disponivel; so para de ficar mais recente.",
+    phases: {
+      iniciando: ["iniciando...", "warning"],
+      conectando: ["conectando...", "warning"],
+      em_dia: ["dados em dia", "good"],
+      aguardando: ["aguardando proximo ciclo", "muted"],
+      erro: ["erro - tentando de novo", "critical"],
+    },
+  },
+  generator: {
+    label: "Gerador de estrategias",
+    desc_start: "Roda 100% local (nunca conecta na IQ Option) gerando e testando estrategias sem parar, usando o cache de candles. Promove a melhor confirmada a 'campeao'.",
+    desc_stop: "Para de gerar estrategias novas. O campeao atual (se houver) continua valendo pro executor.",
+    phases: {
+      iniciando: ["iniciando...", "warning"],
+      aguardando_dados: ["esperando dados do sincronizador", "warning"],
+      gerando: ["gerando e testando estrategias...", "info"],
+      erro: ["erro - tentando de novo", "critical"],
+    },
+  },
+  executor: {
+    label: "Executor",
+    desc_start: "Conecta na IQ Option e abre operacoes reais (conta demo por padrao) usando o campeao atual. Dinheiro real so libera se o campeao estiver confirmado no holdout.",
+    desc_stop: "Para de abrir novas operacoes. Uma operacao ja aberta ainda fecha sozinha normalmente.",
+    phases: {
+      iniciando: ["iniciando", "warning"],
+      aguardando_estrategia: ["esperando o gerador achar uma estrategia", "warning"],
+      bloqueado_dinheiro_real: ["bloqueado: campeao nao confirmado", "critical"],
+      verificando_sinal: ["verificando sinal...", "info"],
+      aguardando_sinal: ["aguardando proximo candle", "muted"],
+      operando: ["operando...", "warning"],
+      aguardando_resultado: ["aguardando resultado...", "warning"],
+      parado: ["parado (limite atingido)", "critical"],
+      erro: ["erro - tentando de novo", "critical"],
+      encerrado: ["encerrado", "muted"],
+    },
+  },
+  learner: {
+    label: "Aprendiz",
+    desc_start: "Processo separado, 100% local (nunca conecta na IQ Option). So olha estrategias JA CONFIRMADAS (hall da fama) e tenta refina-las numa unica estrategia melhor. Nao muda a busca do Gerador nem promove nada sozinho pro executor - so sugere.",
+    desc_stop: "Para de refinar. A ultima escolha do Aprendiz (se houver) continua visivel, so nao melhora mais ate reiniciar.",
+    phases: {
+      iniciando: ["iniciando...", "warning"],
+      aguardando_campeoes: ["esperando pelo menos 1 estrategia confirmada", "warning"],
+      refinando: ["refinando a partir do hall da fama...", "info"],
+      erro: ["erro - tentando de novo", "critical"],
+    },
+  },
+};
+const PHASE_COLOR = {
+  good: "var(--status-good)", warning: "var(--status-warning)",
+  critical: "var(--status-critical)", muted: "var(--text-muted)", info: "var(--series-blue)",
+};
+const BUSY_PHASES = new Set(["conectando","gerando","verificando_sinal","operando","aguardando_resultado","iniciando"]);
+
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text !== undefined) e.textContent = text;
+  return e;
+}
+
+function buildCards() {
+  const row = document.getElementById("cards");
+  row.innerHTML = "";
+  for (const key of Object.keys(COMPONENTS)) {
+    const spec = COMPONENTS[key];
+    const card = el("div", "card");
+    card.id = "card-" + key;
+
+    const head = el("div", "card-head");
+    head.appendChild(el("div", "card-title", spec.label.toUpperCase()));
+    const pidEl = el("div", "card-pid", "");
+    pidEl.id = "pid-" + key;
+    head.appendChild(pidEl);
+    card.appendChild(head);
+
+    const descEl = el("div", "card-desc", spec.desc_start);
+    descEl.id = "desc-" + key;
+    card.appendChild(descEl);
+
+    const phaseRow = el("div", "card-phase-row");
+    const dot = el("div", "dot"); dot.id = "dot-" + key;
+    const phaseText = el("div", "card-phase-text", "parado"); phaseText.id = "phase-" + key;
+    phaseRow.appendChild(dot); phaseRow.appendChild(phaseText);
+    card.appendChild(phaseRow);
+
+    const heartbeat = el("div", "card-heartbeat", ""); heartbeat.id = "heartbeat-" + key;
+    card.appendChild(heartbeat);
+
+    const detail = el("div", "card-detail", ""); detail.id = "detail-" + key;
+    card.appendChild(detail);
+
+    const btnRow = el("div", "btn-row");
+    const startBtn = el("button", "btn-start", "▶ Iniciar");
+    startBtn.id = "start-" + key;
+    const stopBtn = el("button", "btn-stop", "■ Parar");
+    stopBtn.id = "stop-" + key;
+    stopBtn.disabled = true;
+    startBtn.onclick = () => callApi("/api/start/" + key, key, "start", startBtn, stopBtn);
+    stopBtn.onclick = () => callApi("/api/stop/" + key, key, "stop", stopBtn, startBtn);
+    btnRow.appendChild(startBtn); btnRow.appendChild(stopBtn);
+    card.appendChild(btnRow);
+
+    row.appendChild(card);
+  }
+}
+
+// impede que um segundo clique (no mesmo componente) crie um processo
+// duplicado enquanto a primeira chamada ainda esta em andamento - foi
+// exatamente clicar de novo por achar que "nao aconteceu nada" que causou
+// operacoes duplicadas de verdade numa sessao real.
+const inFlight = {};
+
+async function callApi(url, key, action, btn, otherBtn) {
+  if (inFlight[key]) return;
+  inFlight[key] = true;
+  const original = btn.textContent;
+  btn.textContent = action === "start" ? "⏳ Iniciando..." : "⏳ Parando...";
+  btn.disabled = true;
+  if (otherBtn) otherBtn.disabled = true;
+  try {
+    const res = await fetch(url, { method: "POST" });
+    const body = await res.json();
+    if (!body.ok) alert(body.error || "falhou");
+  } catch (e) {
+    alert("erro de rede: " + e);
+  } finally {
+    btn.textContent = original;
+    inFlight[key] = false;
+    await refreshStatus();
+  }
+}
+
+function fmt(n, digits) {
+  if (n === null || n === undefined || isNaN(n)) return "-";
+  return Number(n).toFixed(digits === undefined ? 2 : digits);
+}
+function fmtEventTime(ts) {
+  // ts vem como "YYYY-MM-DD HH:MM:SS" (hora local da maquina que gerou o
+  // evento) - mostra como DD/MM HH:MM:SS, no padrao do resto da pagina.
+  const m = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}:\d{2}:\d{2})$/.exec(ts);
+  if (!m) return ts;
+  return `${m[3]}/${m[2]} ${m[4]}`;
+}
+function timeAgo(ts) {
+  if (!ts) return "-";
+  const s = Math.max(0, (Date.now() / 1000) - ts);
+  if (s < 60) return Math.round(s) + "s atras";
+  if (s < 3600) return Math.round(s / 60) + " min atras";
+  return Math.round(s / 3600) + "h atras";
+}
+
+let statusGeneration = 0;
+let reportsGeneration = 0;
+
+async function refreshStatus() {
+  const myGen = ++statusGeneration;
+  let payload;
+  try {
+    const res = await fetch("/api/status");
+    payload = await res.json();
+  } catch (e) { return; }
+  // se uma chamada mais nova ja comecou (ex: disparada por um reset) enquanto
+  // essa estava em transito, descarta essa resposta desatualizada - senao ela
+  // pode sobrescrever os dados recem-resetados com dados antigos.
+  if (myGen !== statusGeneration) return;
+
+  document.getElementById("pair-info").textContent =
+    payload.config.active + " · duracao " + payload.config.duration_minutes + " min · conta " + payload.config.account_mode;
+
+  for (const key of Object.keys(COMPONENTS)) {
+    const spec = COMPONENTS[key];
+    const comp = payload.components[key];
+    const running = comp.running;
+    const data = comp.data;
+
+    document.getElementById("start-" + key).disabled = running;
+    document.getElementById("stop-" + key).disabled = !running;
+    document.getElementById("desc-" + key).textContent = running ? spec.desc_stop : spec.desc_start;
+    document.getElementById("pid-" + key).textContent = running && data ? "pid " + data.pid : "";
+
+    const dot = document.getElementById("dot-" + key);
+    const phaseText = document.getElementById("phase-" + key);
+    const heartbeatEl = document.getElementById("heartbeat-" + key);
+    const detail = document.getElementById("detail-" + key);
+
+    if (!data) {
+      dot.className = "dot"; dot.style.background = "var(--text-muted)";
+      phaseText.textContent = "parado"; phaseText.style.color = "var(--text-muted)";
+      heartbeatEl.textContent = ""; heartbeatEl.className = "card-heartbeat";
+      detail.textContent = "";
+      continue;
+    }
+
+    // mostra ha quanto tempo foi a ultima resposta SEMPRE, mesmo se
+    // "running" - assim nunca fica ambiguo se esta processando de verdade
+    // ou so parece que sim (o unico jeito de saber com certeza e o relogio).
+    const ageSec = Math.max(0, payload.server_time - data.updated_at);
+    const ageTxt = ageSec < 1 ? "agora mesmo" : "ha " + Math.round(ageSec) + "s";
+    if (!running) {
+      dot.className = "dot"; dot.style.background = "var(--text-muted)";
+      phaseText.textContent = "parado"; phaseText.style.color = "var(--text-muted)";
+      heartbeatEl.textContent = "ultima resposta " + ageTxt + " (parado)";
+      heartbeatEl.className = "card-heartbeat";
+      detail.textContent = "";
+      continue;
+    }
+    const phase = data.phase || "?";
+    const [label, tone] = spec.phases[phase] || [phase, "muted"];
+    const busy = BUSY_PHASES.has(phase);
+    dot.className = "dot" + (busy ? " busy" : "");
+    dot.style.background = PHASE_COLOR[tone];
+    phaseText.textContent = label;
+    phaseText.style.color = PHASE_COLOR[tone];
+    const isStale = ageSec > 15;
+    heartbeatEl.textContent = "ultima resposta " + ageTxt;
+    heartbeatEl.className = "card-heartbeat" + (isStale ? " stale" : "");
+
+    if (key === "sync") {
+      let txt = (data.candles_cached || 0) + " candles no cache local";
+      if (phase === "em_dia" && data.candles_new != null) {
+        txt = (data.candles_new > 0
+          ? "✓ encontrou " + data.candles_new + " candles novos"
+          : "✓ nenhum candle novo (ja estava em dia)") + "\n" + txt;
+      }
+      detail.textContent = txt;
+    } else if (key === "generator") {
+      let txt = (data.trials_tested_total || 0) + " estrategias testadas";
+      if (data.champion_name) {
+        const conf = data.champion_confirmed ? "confirmado" : "nao confirmado";
+        const edge = data.champion_edge;
+        txt += "\ncampeao: " + data.champion_name + " (" + conf + (edge != null ? ", edge " + fmt(edge*100,2) + "%" : "") + ")";
+      }
+      detail.textContent = txt;
+    } else if (key === "executor") {
+      detail.textContent = "vitorias " + (data.wins||0) + " · derrotas " + (data.losses||0) +
+        " · pnl " + fmt(data.daily_pnl, 2);
+    } else if (key === "learner") {
+      let txt = (data.refinements_total || 0) + " rodada(s) de refinamento";
+      if (data.seeds_classic != null || data.seeds_raw != null) {
+        txt += "\nsementes: " + (data.seeds_classic||0) + " classica(s) · " + (data.seeds_raw||0) + " raw";
+      }
+      detail.textContent = txt;
+    }
+  }
+
+  renderChampion(payload.champion);
+  renderExecStats(payload.components.executor.data, payload.components.executor.running, payload.trade_stats_today);
+  renderEvents(payload.components);
+  renderErrors(payload.errors);
+  renderHallOfFame(payload.hall_of_fame);
+  renderLearnerBest(payload.learner_best);
+}
+
+function renderLearnerBest(pick) {
+  const box = document.getElementById("learner-block");
+  if (!pick) {
+    box.innerHTML = '<div class="empty">nenhuma ainda - o Aprendiz precisa de pelo menos 1 estrategia confirmada no hall da fama pra comecar</div>';
+    return;
+  }
+  const when = new Date(pick.updated_at * 1000).toLocaleString("pt-BR");
+  const startBal = pick.sim_starting_balance;
+  const fb = pick.final_balance;
+  const fbCls = fb == null ? "" : (fb > startBal ? "pos" : (fb < startBal ? "neg" : ""));
+  box.innerHTML =
+    '<div style="font-size:16px;font-weight:700;margin-bottom:6px">' + escapeHtml(pick.name) + '</div>' +
+    '<div class="subtle">edge ' + fmt(pick.edge*100,2) + '% · fitness ' + fmt(pick.fitness,5) +
+    ' · atualizado ' + timeAgo(pick.updated_at) + ' (' + when + ')</div>' +
+    '<div class="stat-grid" style="margin-top:12px">' +
+      statCell("TOTAL DE TESTES", pick.num_trades ?? "-") +
+      statCell("CANDLES USADOS", pick.candles_used ?? "-") +
+      statCell("VITORIAS", pick.wins ?? "-", "pos") +
+      statCell("DERROTAS", pick.losses ?? "-", "neg") +
+    '</div>' +
+    '<div class="subtle" style="margin-top:10px">saldo final simulado (partindo de ' + fmt(startBal,2) + '): ' +
+      '<span class="' + fbCls + '">' + (fb != null ? fmt(fb,2) : "-") + '</span></div>' +
+    '<button class="btn-save" style="margin-top:10px;padding:6px 14px;font-size:12px" ' +
+      'onclick="pinChampion(' + pick.trial_id + ')">▶ Usar esta como campeao</button>';
+}
+
+function renderHallOfFame(rows) {
+  const box = document.getElementById("hall-of-fame-table");
+  if (!rows || rows.length === 0) {
+    box.innerHTML = '<div class="empty">nenhuma ainda - a busca ainda esta 100% aleatoria ate a primeira estrategia GP ser confirmada</div>';
+    return;
+  }
+  const startBal = rows[0].sim_starting_balance;
+  let html = '<div class="subtle" style="margin-bottom:6px">saldo final: mesma simulacao do ranking abaixo, ' +
+    'partindo do saldo de referencia (' + fmt(startBal,2) + '), nao usa o saldo real demo</div>' +
+    '<table><thead><tr><th>Estrategia</th><th class="num">Testes</th>' +
+    '<th class="num">Vitorias</th><th class="num">Derrotas</th><th class="num">Acerto%</th>' +
+    '<th class="num">Candles</th><th class="num">Edge</th><th class="num">Saldo Final</th>' +
+    '<th>Confirmada em</th><th></th></tr></thead><tbody>';
+  for (const r of rows) {
+    const when = new Date(r.promoted_at * 1000).toLocaleString("pt-BR");
+    const fb = r.final_balance;
+    const balCls = fb == null ? "" : (fb > startBal ? "pos" : (fb < startBal ? "neg" : ""));
+    html += `<tr><td>${escapeHtml(r.name)}</td><td class="num">${r.num_trades ?? "-"}</td>` +
+      `<td class="num">${r.wins ?? "-"}</td><td class="num">${r.losses ?? "-"}</td>` +
+      `<td class="num">${r.win_pct != null ? fmt(r.win_pct,1) : "-"}</td>` +
+      `<td class="num">${r.candles_used ?? "-"}</td><td class="num">${fmt(r.edge*100,2)}%</td>` +
+      `<td class="num ${balCls}">${fb != null ? fmt(fb,2) : "-"}</td>` +
+      `<td>${when}</td>` +
+      `<td><button class="btn-save" style="padding:4px 10px;font-size:11px" onclick="pinChampion(${r.trial_id})">▶ Ir a live com esta</button></td></tr>`;
+  }
+  box.innerHTML = html + "</tbody></table>";
+}
+
+function renderChampion(champ) {
+  const box = document.getElementById("champion-block");
+  if (!champ) { box.innerHTML = '<div class="empty">nenhum campeao ainda</div>'; return; }
+  const badge = champ.confirmed
+    ? '<span class="badge confirmed">CONFIRMADO NO HOLDOUT</span>'
+    : '<span class="badge unconfirmed">NAO CONFIRMADO (demo)</span>';
+  const pinnedBadge = champ.pinned
+    ? ' <span class="badge unconfirmed">ESCOLHIDA MANUALMENTE</span> ' +
+      '<button class="btn-stop" style="padding:2px 8px;font-size:11px" onclick="unpinChampion()">voltar ao automatico</button>'
+    : "";
+  const wins = champ.wins != null ? champ.wins : "-";
+  const losses = champ.losses != null ? champ.losses : "-";
+  const numTrades = champ.num_trades != null ? champ.num_trades : "-";
+  const candlesUsed = champ.candles_used != null ? champ.candles_used : "-";
+  box.innerHTML =
+    '<div style="font-size:16px;font-weight:700;margin-bottom:6px">' + champ.name + '</div>' +
+    badge + pinnedBadge +
+    '<div class="subtle" style="margin-top:8px">edge ' + fmt(champ.edge*100,2) + '% · fitness ' + fmt(champ.fitness,5) +
+    ' · achado ' + timeAgo(champ.promoted_at) + '</div>' +
+    '<div class="stat-grid" style="margin-top:12px">' +
+      statCell("TOTAL DE TESTES", numTrades) +
+      statCell("CANDLES USADOS", candlesUsed) +
+      statCell("VITORIAS", wins, "pos") +
+      statCell("DERROTAS", losses, "neg") +
+    '</div>' +
+    renderProjection(champ.projection);
+}
+
+function renderProjection(proj) {
+  if (!proj) return "";
+  const pnlCls = proj.total_pnl > 0 ? "pos" : (proj.total_pnl < 0 ? "neg" : "");
+  return (
+    '<div class="subtle" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">' +
+      'SALDO FINAL SIMULADO (replay real do teste holdout - nao usa o saldo demo)</div>' +
+    '<div class="subtle" style="margin-top:2px">' +
+      'saldo inicial ' + fmt(proj.starting_balance,2) + ' · aposta fixa ' + fmt(proj.amount,2) +
+      ' · payout IQ ' + fmt(proj.payout*100,0) + '% (comissao ' + fmt((1-proj.payout)*100,0) + '% ja descontada) ' +
+      '· ' + proj.num_trades + ' operacoes testadas' +
+    '</div>' +
+    '<div class="stat-grid" style="margin-top:10px">' +
+      statCell("SALDO FINAL", fmt(proj.final_balance,2), pnlCls) +
+      statCell("GANHO/PERDA", fmt(proj.total_pnl,2), pnlCls) +
+    '</div>'
+  );
+}
+
+function statCell(label, value, cls) {
+  return '<div><div class="stat-label">' + label + '</div>' +
+    '<div class="stat-value small' + (cls ? ' ' + cls : '') + '">' + value + '</div></div>';
+}
+
+function renderExecStats(data, running, todayStats) {
+  const grid = document.getElementById("exec-stats");
+  const balance = running && data ? data.balance : null;
+  const pnl = todayStats ? todayStats.total_pnl : 0;
+  const wins = todayStats ? todayStats.wins : 0;
+  const losses = todayStats ? todayStats.losses : 0;
+  const winRate = todayStats && todayStats.total_trades ? (todayStats.win_rate*100) : null;
+
+  grid.innerHTML = `
+    <div><div class="stat-label">Saldo</div><div class="stat-value">${balance!=null?fmt(balance,2):"-"}</div></div>
+    <div><div class="stat-label">PNL hoje</div><div class="stat-value ${pnl>0?'pos':(pnl<0?'neg':'')}">${fmt(pnl,2)}</div></div>
+    <div><div class="stat-label">Vit / Derr</div><div class="stat-value small">${wins} / ${losses}</div></div>
+    <div><div class="stat-label">% acerto hoje</div><div class="stat-value small">${winRate!=null?fmt(winRate,0)+'%':'-'}</div></div>
+  `;
+}
+
+function renderEvents(components) {
+  const box = document.getElementById("events-log");
+  let merged = [];
+  for (const key of Object.keys(components)) {
+    const data = components[key].data;
+    if (!data || !data.events) continue;
+    const label = COMPONENTS[key].label;
+    for (const line of data.events.slice(0, 10)) {
+      const ts = line.slice(0, 19);
+      const rest = line.slice(21);
+      merged.push({ ts, text: "[" + fmtEventTime(ts) + "] [" + label + "] " + rest });
+    }
+  }
+  merged.sort((a,b) => b.ts.localeCompare(a.ts));
+  if (merged.length === 0) { box.innerHTML = '<div class="empty">sem eventos ainda</div>'; return; }
+  box.innerHTML = merged.slice(0,60).map(m => {
+    let cls = "";
+    if (m.text.includes("GANHOU")) cls = "win";
+    else if (m.text.includes("PERDEU")) cls = "loss";
+    else if (m.text.includes("sem sinal") || m.text.includes("aguardando")) cls = "muted";
+    return '<div class="' + cls + '">' + escapeHtml(m.text) + '</div>';
+  }).join("");
+}
+
+function renderErrors(errors) {
+  const box = document.getElementById("errors-log");
+  if (!errors || errors.length === 0) { box.innerHTML = '<div class="empty">nenhum erro registrado ainda</div>'; return; }
+  box.innerHTML = errors.map(e => {
+    const when = new Date(e.created_at*1000).toLocaleTimeString("pt-BR");
+    return '<div>' + when + ' [' + e.component + '] ' + escapeHtml(e.error_type) + ': ' + escapeHtml(e.message) + '</div>';
+  }).join("");
+}
+
+function escapeHtml(s) {
+  const d = document.createElement("div"); d.textContent = s; return d.innerHTML;
+}
+
+// ---------------- relatorios (menos frequentes) ----------------
+
+async function refreshReports() {
+  const myGen = ++reportsGeneration;
+  let payload;
+  try {
+    const res = await fetch("/api/reports");
+    payload = await res.json();
+  } catch (e) { return; }
+  if (myGen !== reportsGeneration) return;
+
+  renderLeaderboard(payload.leaderboard);
+  renderChampionHistory(payload.champion_history);
+  renderTrades(payload.trade_history);
+  drawTrialsChart(payload.trials_per_hour);
+  drawPnlChart(payload.trade_history);
+}
+
+function renderLeaderboard(rows) {
+  const box = document.getElementById("leaderboard-table");
+  if (!rows || rows.length === 0) { box.innerHTML = '<div class="empty">nenhuma estrategia confirmada ainda</div>'; return; }
+  const startBal = rows[0].sim_starting_balance;
+  let html = '<div class="subtle" style="margin-bottom:6px">saldo final: cada estrategia simulada partindo do MESMO saldo (' +
+    fmt(startBal,2) + '), independente uma da outra - nao usa o saldo real demo</div>' +
+    '<table><thead><tr><th>Estrategia</th><th class="num">Testes</th><th class="num">Vitorias</th>' +
+    '<th class="num">Derrotas</th><th class="num">Candles</th><th class="num">Acerto%</th>' +
+    '<th class="num">Edge</th><th class="num">Fitness</th><th class="num">Saldo Final</th><th></th></tr></thead><tbody>';
+  for (const r of rows) {
+    const candles = r.candles_used != null ? r.candles_used : "-";
+    const fb = r.final_balance;
+    const fbCls = fb == null ? "" : (fb > startBal ? "pos" : (fb < startBal ? "neg" : ""));
+    html += `<tr><td>${escapeHtml(r.name)}</td><td class="num">${r.num_trades}</td>` +
+      `<td class="num">${r.wins}</td><td class="num">${r.losses}</td><td class="num">${candles}</td>` +
+      `<td class="num">${fmt(r.win_pct,1)}</td><td class="num">${fmt(r.edge*100,2)}%</td><td class="num">${fmt(r.fitness,5)}</td>` +
+      `<td class="num ${fbCls}">${fb != null ? fmt(fb,2) : "-"}</td>` +
+      `<td><button class="btn-save" style="padding:4px 10px;font-size:11px" onclick="pinChampion(${r.id})">▶ Ir a live com esta</button></td></tr>`;
+  }
+  box.innerHTML = html + "</tbody></table>";
+}
+
+function renderChampionHistory(rows) {
+  const box = document.getElementById("champion-history-table");
+  if (!rows || rows.length === 0) { box.innerHTML = '<div class="empty">nenhuma promocao ainda</div>'; return; }
+  let html = '<table><thead><tr><th>Quando</th><th>Estrategia</th><th>Status</th><th class="num">Edge</th></tr></thead><tbody>';
+  for (const r of rows) {
+    const when = new Date(r.promoted_at*1000).toLocaleString("pt-BR");
+    const badge = r.confirmed ? '<span class="badge confirmed">confirmado</span>' : '<span class="badge unconfirmed">nao confirmado</span>';
+    html += `<tr><td>${when}</td><td>${escapeHtml(r.name)}</td><td>${badge}</td><td class="num">${fmt(r.edge*100,2)}%</td></tr>`;
+  }
+  box.innerHTML = html + "</tbody></table>";
+}
+
+function renderTrades(rows) {
+  const box = document.getElementById("trades-table");
+  if (!rows || rows.length === 0) { box.innerHTML = '<div class="empty">nenhuma operacao ainda</div>'; return; }
+  let html = '<table><thead><tr><th>Quando</th><th>Estrategia</th><th>Acao</th><th class="num">Valor</th><th class="num">PnL</th><th class="num">Saldo</th></tr></thead><tbody>';
+  for (const r of rows.slice(0,40)) {
+    const when = new Date(r.created_at*1000).toLocaleString("pt-BR");
+    const pnlCls = r.pnl > 0 ? "pos" : (r.pnl < 0 ? "neg" : "");
+    html += `<tr><td>${when}</td><td>${escapeHtml(r.strategy_name)}</td><td>${r.action}${r.is_hedge?' (hedge)':''}</td><td class="num">${fmt(r.amount,2)}</td><td class="num ${pnlCls}">${fmt(r.pnl,2)}</td><td class="num">${fmt(r.balance_after,2)}</td></tr>`;
+  }
+  box.innerHTML = html + "</tbody></table>";
+}
+
+// ---------------- graficos SVG (sem biblioteca externa) ----------------
+
+function svgClear(svg) { while (svg.firstChild) svg.removeChild(svg.firstChild); }
+function svgEl(name, attrs) {
+  const e = document.createElementNS("http://www.w3.org/2000/svg", name);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  return e;
+}
+
+function drawTrialsChart(rows) {
+  const svg = document.getElementById("chart-trials");
+  svgClear(svg);
+  if (!rows || rows.length === 0) return;
+  const W = 1100, H = 180, padL = 40, padR = 10, padT = 10, padB = 24;
+  const innerW = W - padL - padR, innerH = H - padT - padB;
+  const maxVal = Math.max(1, ...rows.map(r => r.count));
+  const n = rows.length;
+  const barW = Math.max(2, innerW / n - 4);
+
+  // gridlines
+  for (let i = 0; i <= 3; i++) {
+    const y = padT + innerH - (innerH * i / 3);
+    svg.appendChild(svgEl("line", { x1: padL, x2: W-padR, y1: y, y2: y, class: "grid-line" }));
+    const label = svgEl("text", { x: padL - 6, y: y + 3, "text-anchor": "end" });
+    label.textContent = Math.round(maxVal * i / 3);
+    svg.appendChild(label);
+  }
+
+  rows.forEach((r, i) => {
+    const x = padL + i * (innerW / n) + 2;
+    const h = (r.count / maxVal) * innerH;
+    const y = padT + innerH - h;
+    svg.appendChild(svgEl("rect", { x, y, width: barW, height: Math.max(1,h), rx: 2, class: "bar" }));
+    if (i === n-1 || i % Math.ceil(n/8) === 0) {
+      const d = new Date(r.hour_ts * 1000);
+      const label = svgEl("text", { x: x + barW/2, y: H - 6, "text-anchor": "middle" });
+      label.textContent = d.getHours() + "h";
+      svg.appendChild(label);
+    }
+  });
+  svg.appendChild(svgEl("line", { x1: padL, x2: W-padR, y1: padT+innerH, y2: padT+innerH, class: "baseline" }));
+}
+
+function drawPnlChart(trades) {
+  const svg = document.getElementById("chart-pnl");
+  svgClear(svg);
+  if (!trades || trades.length === 0) return;
+  const ordered = trades.slice().reverse();
+  let cum = 0;
+  const points = ordered.map(t => { cum += t.pnl; return cum; });
+
+  const W = 1100, H = 180, padL = 46, padR = 10, padT = 14, padB = 20;
+  const innerW = W - padL - padR, innerH = H - padT - padB;
+  const minV = Math.min(0, ...points), maxV = Math.max(0, ...points);
+  const range = (maxV - minV) || 1;
+  const n = points.length;
+
+  const xAt = i => padL + (n === 1 ? 0 : (innerW * i / (n - 1)));
+  const yAt = v => padT + innerH - ((v - minV) / range) * innerH;
+
+  for (let i = 0; i <= 3; i++) {
+    const v = minV + (range * i / 3);
+    const y = yAt(v);
+    svg.appendChild(svgEl("line", { x1: padL, x2: W-padR, y1: y, y2: y, class: "grid-line" }));
+    const label = svgEl("text", { x: padL - 6, y: y + 3, "text-anchor": "end" });
+    label.textContent = fmt(v, 1);
+    svg.appendChild(label);
+  }
+  const zeroY = yAt(0);
+  svg.appendChild(svgEl("line", { x1: padL, x2: W-padR, y1: zeroY, y2: zeroY, class: "baseline" }));
+
+  let dPath = "M " + xAt(0) + " " + yAt(points[0]);
+  for (let i = 1; i < n; i++) dPath += " L " + xAt(i) + " " + yAt(points[i]);
+  let aPath = dPath + ` L ${xAt(n-1)} ${zeroY} L ${xAt(0)} ${zeroY} Z`;
+  svg.appendChild(svgEl("path", { d: aPath, class: "area-path" }));
+  svg.appendChild(svgEl("path", { d: dPath, class: "line-path" }));
+
+  // hover layer
+  const hoverLine = svgEl("line", { class: "hover-line", x1:0, x2:0, y1: padT, y2: padT+innerH, style: "display:none" });
+  const hoverDot = svgEl("circle", { r: 4, fill: "var(--series-blue)", style: "display:none" });
+  svg.appendChild(hoverLine); svg.appendChild(hoverDot);
+  const tooltip = document.getElementById("tooltip");
+
+  const overlay = svgEl("rect", { x: padL, y: padT, width: innerW, height: innerH, fill: "transparent" });
+  overlay.addEventListener("mousemove", (ev) => {
+    const rect = svg.getBoundingClientRect();
+    const scaleX = W / rect.width;
+    const mx = (ev.clientX - rect.left) * scaleX;
+    let idx = Math.round(((mx - padL) / innerW) * (n - 1));
+    idx = Math.max(0, Math.min(n - 1, idx));
+    const x = xAt(idx), y = yAt(points[idx]);
+    hoverLine.setAttribute("x1", x); hoverLine.setAttribute("x2", x);
+    hoverLine.style.display = "block"; hoverDot.style.display = "block";
+    hoverDot.setAttribute("cx", x); hoverDot.setAttribute("cy", y);
+    const t = ordered[idx];
+    tooltip.style.display = "block";
+    tooltip.style.left = (ev.clientX + 12) + "px";
+    tooltip.style.top = (ev.clientY - 10) + "px";
+    tooltip.innerHTML = new Date(t.created_at*1000).toLocaleString("pt-BR") +
+      "<br>pnl acumulado: <b>" + fmt(points[idx],2) + "</b>";
+  });
+  overlay.addEventListener("mouseleave", () => {
+    hoverLine.style.display = "none"; hoverDot.style.display = "none"; tooltip.style.display = "none";
+  });
+  svg.appendChild(overlay);
+}
+
+// ---------------- configuracoes ----------------
+
+async function loadSettings() {
+  let payload;
+  try {
+    const res = await fetch("/api/settings");
+    payload = await res.json();
+  } catch (e) { return; }
+
+  const durationMinutes = payload.duration_minutes || 1;
+  const box = document.getElementById("settings-form");
+  box.innerHTML = "";
+  for (const s of payload.settings) {
+    const field = el("div", "settings-field");
+    const label = el("label", null, s.label);
+    field.appendChild(label);
+    if (s.type === "select") {
+      const select = el("select");
+      select.id = "setting-" + s.key; select.dataset.key = s.key; select.dataset.type = "select";
+      for (const opt of s.options) {
+        const optEl = el("option", null, opt);
+        optEl.value = opt;
+        if (opt === s.value) optEl.selected = true;
+        select.appendChild(optEl);
+      }
+      field.appendChild(select);
+    } else {
+      const input = el("input");
+      input.type = "number"; input.step = "0.01"; input.min = "0.01";
+      input.value = s.value; input.id = "setting-" + s.key;
+      input.dataset.key = s.key; input.dataset.type = "number";
+      field.appendChild(input);
+      if (s.show_days) {
+        const daysHint = el("div", "subtle", "");
+        daysHint.id = "days-hint-" + s.key;
+        daysHint.style.fontSize = "10.5px";
+        const updateDaysHint = () => {
+          const candles = parseFloat(input.value) || 0;
+          const days = (candles * durationMinutes) / (60 * 24);
+          daysHint.textContent = "≈ " + fmt(days, 1) + " dias de historico";
+        };
+        input.addEventListener("input", updateDaysHint);
+        updateDaysHint();
+        field.appendChild(daysHint);
+      }
+    }
+    box.appendChild(field);
+  }
+  const saveBtn = el("button", "btn-save", "💾 Salvar");
+  saveBtn.onclick = saveSettings;
+  box.appendChild(saveBtn);
+}
+
+async function saveSettings() {
+  const fields = document.querySelectorAll("#settings-form input, #settings-form select");
+  const body = {};
+  for (const f of fields) body[f.dataset.key] = f.value;
+  try {
+    const res = await fetch("/api/settings", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const result = await res.json();
+    if (!result.ok) { alert(result.error || "falhou ao salvar"); return; }
+    const saved = document.getElementById("settings-saved");
+    saved.style.display = "inline"; saved.textContent = "✓ salvo - reinicie o Executor pra aplicar";
+    setTimeout(() => { saved.style.display = "none"; }, 4000);
+  } catch (e) {
+    alert("erro de rede: " + e);
+  }
+}
+
+// ---------------- zona de perigo: reset e backups ----------------
+
+async function loadBackups() {
+  let payload;
+  try {
+    const res = await fetch("/api/backups");
+    payload = await res.json();
+  } catch (e) { return; }
+
+  const box = document.getElementById("backups-table");
+  if (!payload.backups || payload.backups.length === 0) {
+    box.innerHTML = '<div class="empty">nenhum backup ainda</div>';
+    return;
+  }
+  let html = '<table><thead><tr><th>Quando</th><th class="num">Tamanho</th><th></th></tr></thead><tbody>';
+  for (const b of payload.backups) {
+    const when = new Date(b.created_at * 1000).toLocaleString("pt-BR");
+    html += `<tr><td>${when}</td><td class="num">${b.size_kb.toFixed(0)} KB</td>` +
+      `<td style="display:flex;gap:6px"><button class="btn-save" style="padding:4px 10px;font-size:11px" ` +
+      `onclick="restoreBackup('${b.name}')">↩️ Restaurar</button>` +
+      `<button class="btn-stop" style="padding:4px 10px;font-size:11px" ` +
+      `onclick="deleteBackup('${b.name}')">🗑 Apagar</button></td></tr>`;
+  }
+  box.innerHTML = html + "</tbody></table>";
+}
+
+async function deleteBackup(name) {
+  if (!confirm("Apagar este backup? Nao da pra desfazer.")) return;
+  try {
+    const res = await fetch("/api/backups/" + encodeURIComponent(name), { method: "DELETE" });
+    const result = await res.json();
+    if (!result.ok) alert(result.error || "falhou ao apagar");
+  } catch (e) {
+    alert("erro de rede: " + e);
+  } finally {
+    loadBackups();
+  }
+}
+
+async function clearOldBackups() {
+  if (!confirm("Apagar todos os backups antigos, mantendo so os 2 mais recentes? Nao da pra desfazer.")) return;
+  try {
+    const res = await fetch("/api/backups/clear_old", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ keep: 2 }),
+    });
+    const result = await res.json();
+    if (!result.ok) alert(result.error || "falhou ao limpar backups");
+  } catch (e) {
+    alert("erro de rede: " + e);
+  } finally {
+    loadBackups();
+  }
+}
+
+async function clearErrors() {
+  if (!confirm("Apagar todo o log de erros registrado? Nao da pra desfazer.")) return;
+  try {
+    const res = await fetch("/api/errors/clear", { method: "POST" });
+    const result = await res.json();
+    if (!result.ok) alert(result.error || "falhou ao limpar erros");
+  } catch (e) {
+    alert("erro de rede: " + e);
+  } finally {
+    refreshStatus();
+  }
+}
+
+async function pinChampion(trialId) {
+  if (!confirm("Usar esta estrategia agora, ignorando a escolha automatica do Gerador? " +
+      "O Executor passa a operar com ela imediatamente. O Gerador continua procurando, " +
+      "mas nao troca mais sozinho ate voce clicar em 'voltar ao automatico'.")) return;
+  try {
+    const res = await fetch("/api/champion/pin", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ trial_id: trialId }),
+    });
+    const result = await res.json();
+    if (!result.ok) alert(result.error || "falhou ao escolher estrategia");
+  } catch (e) {
+    alert("erro de rede: " + e);
+  } finally {
+    refreshStatus();
+  }
+}
+
+async function unpinChampion() {
+  if (!confirm("Voltar o campeao pro modo automatico? O Gerador volta a poder trocar por uma estrategia melhor.")) return;
+  try {
+    const res = await fetch("/api/champion/unpin", { method: "POST" });
+    const result = await res.json();
+    if (!result.ok) alert(result.error || "falhou");
+  } catch (e) {
+    alert("erro de rede: " + e);
+  } finally {
+    refreshStatus();
+  }
+}
+
+const RESET_CONFIRM = {
+  balance: "Isso vai resetar o saldo PRACTICE na IQ Option e zerar o historico " +
+    "de operacoes (nao mexe em estrategias/campeao). Para o Executor. Backup " +
+    "automatico antes. Continuar?",
+  strategies: "Isso vai zerar tentativas, campeao, historico de campeoes e a " +
+    "escolha do Aprendiz (nao mexe em saldo/operacoes). Para Gerador + " +
+    "Executor + Aprendiz - a estrategia atual sera perdida e uma nova " +
+    "precisa ser encontrada. Backup automatico antes. Continuar?",
+};
+
+async function resetScope(scope) {
+  if (!confirm(RESET_CONFIRM[scope])) return;
+
+  const btn = document.getElementById("reset-" + scope + "-btn");
+  const statusEl = document.getElementById("reset-status");
+  btn.disabled = true;
+  statusEl.textContent = "⏳ resetando...";
+  try {
+    const res = await fetch("/api/reset/" + scope, { method: "POST" });
+    const result = await res.json();
+    if (!result.ok) {
+      statusEl.textContent = "❌ " + (result.error || "falhou");
+    } else {
+      let msg = "✓ resetado (" + scope + "). backup: " + result.backup;
+      if (result.practice_balance != null) msg += " · saldo novo: " + fmt(result.practice_balance, 2);
+      if (result.balance_error) msg += " · (nao consegui resetar o saldo agora: " + result.balance_error + ")";
+      statusEl.textContent = msg;
+    }
+  } catch (e) {
+    statusEl.textContent = "❌ erro de rede: " + e;
+  } finally {
+    btn.disabled = false;
+    loadBackups();
+    refreshStatus();
+    refreshReports();
+  }
+}
+
+async function restoreBackup(name) {
+  if (!confirm("Restaurar este backup? O estado atual vira um backup novo antes, entao da pra desfazer. Os 3 componentes vao ser parados.")) return;
+  try {
+    const res = await fetch("/api/restore", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    });
+    const result = await res.json();
+    if (!result.ok) { alert(result.error || "falhou ao restaurar"); return; }
+    alert("Restaurado. Componentes parados - inicie de novo quando quiser.");
+  } catch (e) {
+    alert("erro de rede: " + e);
+  } finally {
+    loadBackups();
+    refreshStatus();
+    refreshReports();
+  }
+}
+
+// ---------------- boot ----------------
+
+buildCards();
+refreshStatus();
+refreshReports();
+loadSettings();
+loadBackups();
+setInterval(refreshStatus, 1500);
+setInterval(refreshReports, 15000);
+</script>
+</body>
+</html>
