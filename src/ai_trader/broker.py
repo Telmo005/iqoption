@@ -64,15 +64,22 @@ class Broker:
 
     def connect(self, max_attempts=4):
         """Tenta conectar com retry (blips de rede/DNS passageiros nao devem
-        derrubar o processo inteiro - ja aconteceu em teste real)."""
+        derrubar o processo inteiro - ja aconteceu em teste real).
+
+        self.iq.connect() passa pelo mesmo prazo maximo das outras chamadas
+        de rede (_call_with_timeout) - sem isso, essa era a UNICA chamada de
+        rede deste arquivo sem protecao: se travasse silenciosamente (mesma
+        categoria de bug ja vista em get_candles, que prendeu o executor
+        travado por horas), o processo ficava preso pra sempre em
+        'conectando...', sem nunca cair no except nem tentar de novo."""
         last_error = None
         for attempt in range(1, max_attempts + 1):
             try:
-                check, reason = self.iq.connect()
+                check, reason = self._call_with_timeout(self.iq.connect)
                 if not check:
                     last_error = reason
                 else:
-                    self.iq.change_balance(self.balance_mode)
+                    self._call_with_timeout(self.iq.change_balance, self.balance_mode)
                     logger.info("conectado, operando em conta %s", self.balance_mode)
                     return self
             except Exception as exc:
@@ -151,7 +158,7 @@ class Broker:
         chamada depender do ARM_REAL_MONEY de alguma forma)."""
         self.ensure_connected()
         if self.balance_mode != "PRACTICE":
-            self.iq.change_balance("PRACTICE")
+            self._call_with_timeout(self.iq.change_balance, "PRACTICE")
         self._call(self.iq.reset_practice_balance)
         return self._call(self.iq.get_balance)
 
